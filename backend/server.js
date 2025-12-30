@@ -2,6 +2,10 @@ const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
 
+//-----db connection--------
+const connectDB = require("./config/db");
+connectDB();
+//------------------------------------------------------------
 const app = express();
 app.use(express.json());
 
