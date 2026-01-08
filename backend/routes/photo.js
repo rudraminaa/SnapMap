@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import authMiddleware from "../middleware/authentication.js";
-import { uploadPhoto } from "../controllers/photoController.js";
+import { uploadPhoto, getAllPhotos, testUploadPhoto } from "../controllers/photoController.js";
 
 const router = express.Router();
 
@@ -17,5 +17,7 @@ const upload = multer({
 });
 
 router.post("/upload-photo", authMiddleware, upload.single("photo"), uploadPhoto);
+router.post("/test-upload", upload.single("photo"), testUploadPhoto); // Test route without auth
+router.get("/all-photos", getAllPhotos);
 
 export default router
