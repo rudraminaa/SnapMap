@@ -1,11 +1,9 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
-import type { CameraType, FlashMode } from "expo-camera";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  Button,
   Text,
   TouchableOpacity,
   View,
@@ -14,95 +12,56 @@ import type { ScreenProps } from "../types";
 import CameraStyle from "../styles/CameraStyle";
 
 const styles = CameraStyle;
+
 export default function CameraScreen({
   navigation,
 }: ScreenProps<"CameraScreen">) {
-  const cameraRef = useRef(null);
-  const [facing, setFacing] = useState<CameraType>("back");
-  const [flash, setFlash] = useState<FlashMode>("off");
+  const cameraRef = useRef<any>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const [isCameraOk, setIsCameraOk] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const requestLocationPermission = async () => {
-      await Location.requestForegroundPermissionsAsync();
-    };
-
-    if (isMounted) {
-      requestLocationPermission();
-    }
-
-    return () => {
-      isMounted = false;
-    };
+    Location.requestForegroundPermissionsAsync();
   }, []);
 
-  if (!permission) {
-    return <View />;
-  }
+if (!permission?.granted) {
+  return (
+    <View style={styles.permissionContainer}>
+      <Text style={styles.permissionTitle}>Share With Campus</Text>
 
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>We need camera permission.</Text>
-        <Button title="Grant permission" onPress={requestPermission} />
+      <Text style={styles.permissionSubtitle}>
+        SnapMap needs access to your camera so you can capture and share photos
+        on the live campus map.
+      </Text>
+
+      <View style={styles.cameraIconWrapper}>
+        <View style={styles.cameraIconInner}>
+          <Text style={styles.cameraIcon}>📷</Text>
+        </View>
       </View>
-    );
-  }
 
-  const toggleCameraFacing = () => {
-    setFacing((current) => (current === "back" ? "front" : "back"));
-  };
+      <TouchableOpacity
+        style={styles.permissionButton}
+        onPress={requestPermission}
+      >
+        <Text style={styles.permissionButtonText}>
+          Allow Camera Access
+        </Text>
+      </TouchableOpacity>
 
-  const toggleFlash = () => {
-    setFlash((current) => (current === "off" ? "on" : "off"));
-  };
+      <TouchableOpacity>
+        <Text style={styles.notNowText}>Not now</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
-  const ensureLocationPermission = async () => {
-    const current = await Location.getForegroundPermissionsAsync();
 
-    if (current.status === "granted") {
-      return "granted";
-    }
-
-    if (current.canAskAgain) {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      return status;
-    }
-
-    Alert.alert(
-      "Location permission needed",
-      "Enable location permission for Expo Go in system settings."
-    );
-    return current.status;
-  };
-
-  const handletheCapture = async () => {
-    if (!cameraRef.current || !isCameraOk) {
-      return;
-    }
+  const capturePhoto = async () => {
+    if (!cameraRef.current || !isCameraReady) return;
 
     const photo = await cameraRef.current.takePictureAsync();
-    let location = null;
-    const permissionStatus = await ensureLocationPermission();
-
-    if (permissionStatus === "granted") {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
-        Alert.alert(
-          "Location off",
-          "Enable location services to add location data."
-        );
-      } else {
-        try {
-          location = await Location.getCurrentPositionAsync({});
-        } catch (error) {
-          Alert.alert("Location error", "Unable to fetch your location.");
-        }
-      }
-    }
+    const location = await Location.getCurrentPositionAsync({});
 
     navigation.navigate("UploadConfirmationScreen", {
       photo,
@@ -110,56 +69,23 @@ export default function CameraScreen({
     });
   };
 
-  const handleGalleryPick = async () => {
-    // Request media library permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "We need gallery access to select photos."
-      );
-      return;
-    }
-
-    // Launch image picker
+  const openGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
+      mediaTypes: ["images"],
       quality: 1,
     });
 
-    if (result.canceled) {
-      return;
-    }
+    if (result.canceled) return;
 
-    // Get location for gallery photo
-    let location = null;
-    const permissionStatus = await ensureLocationPermission();
+    const location = await Location.getCurrentPositionAsync({});
 
-    if (permissionStatus === "granted") {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
-        Alert.alert(
-          "Location off",
-          "Enable location services to add location data."
-        );
-      } else {
-        try {
-          location = await Location.getCurrentPositionAsync({});
-        } catch (error) {
-          Alert.alert("Location error", "Unable to fetch your location.");
-        }
-      }
-    }
-
-    // Navigate to confirmation screen with gallery photo
     navigation.navigate("UploadConfirmationScreen", {
       photo: {
         uri: result.assets[0].uri,
-        width: result.assets[0].width,
-        height: result.assets[0].height,
+        width: result.assets[0].width ?? 0,
+        height: result.assets[0].height ?? 0,
       } as any,
+
       location,
     });
   };
@@ -169,39 +95,22 @@ export default function CameraScreen({
       <CameraView
         ref={cameraRef}
         style={styles.camera}
-        facing={facing}
-        flash={flash}
-        onCameraReady={() => setIsCameraOk(true)}
+        onCameraReady={() => setIsCameraReady(true)}
       />
+
       <View style={styles.controls}>
-        <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
-            <Text style={styles.controlText}>
-              Flash {flash === "on" ? "On" : "Off"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={toggleCameraFacing}
-          >
-            <Text style={styles.controlText}>Flip</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.controlsRow}>
-          <TouchableOpacity
-            style={styles.galleryButton}
-            onPress={handleGalleryPick}
-          >
-            <Text style={styles.controlText}>Gallery</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.shutterOuter}
-            onPress={handletheCapture}
-          >
-            <View style={styles.shutterInnerButton} />
-          </TouchableOpacity>
-          <View style={styles.galleryButton} />
-        </View>
+        <TouchableOpacity onPress={openGallery}>
+          <Text style={styles.controlText}>Gallery</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.shutterOuter}
+          onPress={capturePhoto}
+        >
+          <View style={styles.shutterInner} />
+        </TouchableOpacity>
+
+        <View style={{ width: 50 }} />
       </View>
     </View>
   );
