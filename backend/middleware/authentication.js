@@ -10,7 +10,6 @@ if (!process.env.CLERK_SECRET_KEY) {
 async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    console.log("Auth header present:", !!authHeader);
     
     if (!authHeader) {
       console.log("No authorization header");
@@ -24,8 +23,6 @@ async function authMiddleware(req, res, next) {
       return res.status(401).json({ message: "Unauthorized: No token provided" });
     }
     
-    console.log("Token received, length:", token.length);
-    console.log("Token preview:", token.substring(0, 20) + "...");
     
     if (!process.env.CLERK_SECRET_KEY) {
       console.error("CLERK_SECRET_KEY is not set in environment variables");
@@ -40,7 +37,6 @@ async function authMiddleware(req, res, next) {
     });
     
     req.userId = decoded.sub;
-    console.log("Token verified successfully, userId:", req.userId);
     next();
   } catch (err) {
     console.error("Token verification error:", err.message);
